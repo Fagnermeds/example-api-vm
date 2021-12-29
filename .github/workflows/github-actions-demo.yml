@@ -27,7 +27,7 @@ jobs:
       with:
         credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
     - name: Configure Docker
-      run: gcloud auth configure-docker
+      run: gcloud auth configure-docker --yes
     - name: Build Docker image
       run: |-
         docker build \
