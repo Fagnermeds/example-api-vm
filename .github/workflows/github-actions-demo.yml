@@ -3,22 +3,50 @@ on:
   push:
     branches:
       - main
- 
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT }}
+  LOCATION: us-east4 
+  REPOSITORY: test-repo
+  IMAGE: example-api-vm
+  INSTANCE_NAME: instance-template-$GITHUB_SHA 
+  MACHINE_TYPE: e2-medium
+  INSTANCE_GROUP: instance-group-1
+  ZONE: us-east4-c
 jobs:
-  setup-deploy:
+  deploy:
     name: Deploy production
     runs-on: ubuntu-latest
     environment: production
     steps:
     - name: Checkout
       uses: actions/checkout@v2
-      
+
     - id: auth
       name: Authenticate Google Cloud
       uses: 'google-github-actions/auth@v0'
       with:
         credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
-    - name: list instance groups
+    - name: Configure Docker
+      run: gcloud auth configure-docker
+    - name: Build Docker image
       run: |-
-        gcloud compute instance-groups list
-    - run: echo "Obrigado meu Deus!"  
+        docker build \
+          --tag "$LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE" \
+          .
+    - name: Push Docker image
+      run: docker push "$LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE"
+    - name: Create instance template
+      run: |-
+        gcloud compute instance-templates create-with-container $INSTANCE_NAME --machine-type=$MACHINE_TYPE \
+          --preemptible \
+          --container-image="$LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE" \
+          --container-restart-policy=always \
+          --container-privileged \
+          --tags=http-server
+    - name: Update instance group
+      run: |-
+        gcloud compute instance-groups managed rolling-action start-update $INSTANCE_GROUP \
+          --version=template=$INSTANCE_NAME \
+		      --zone=$ZONE  
+
+      
