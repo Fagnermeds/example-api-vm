@@ -47,6 +47,6 @@ jobs:
       run: |-
         gcloud compute instance-groups managed rolling-action start-update $INSTANCE_GROUP \
           --version=template=$INSTANCE_NAME \
-		      --zone=$ZONE  
+	  --zone=$ZONE  
 
       
